@@ -1,0 +1,88 @@
+# ========== Python ==========
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+env/
+.venv/
+*.egg-info
+
+# ========== Virtual Environments ==========
+env.bak/
+venv.bak/
+pip-wheel-metadata/
+
+# ========== Test & Tool Caches ==========
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ========== Jupyter ==========
+.ipynb_checkpoints
+*.ipynb
+
+# ========== IDE / Editor ==========
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# ========== OS ==========
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ========== Large Datasets & Archives ==========
+LoveDA/
+LoveDA.zip
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# ========== Model Weights & Checkpoints ==========
+checkpoints/
+pretrained/
+*.pth
+*.pt
+*.onnx
+*.safetensors
+*.bin
+*.ckpt
+*.h5
+*.pdparams
+
+# ========== Logs & Outputs ==========
+logs/
+results/
+*.log
+*.log.*
+nohup.out
+training_curves_*.png
+result_*.csv
+
+# ========== Private / Local Config ==========
+cmd.txt
+.env
+.env.*
+local_config.py
+config_local.py
