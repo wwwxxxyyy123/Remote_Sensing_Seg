@@ -337,7 +337,17 @@ $$mIoU = \frac{1}{C} \sum\_{c=1}^{C} \frac{TP\_c}{TP\_c + FP\_c + FN\_c}$$
 
 其中 $C$ 为类别数，$TP\_c$、$FP\_c$、$FN\_c$ 分别为类别 $c$ 的真正例、假正例和假反例像素数。
 
-### 5.2 消融实验
+### 5.2 测试与评价流程
+
+由于 LoveDA 测试集（Test）不公开标注掩码，实验结果通过以下流程获取：
+
+1. **模型推理**：使用 [test.py](file:///d:/Code/python/Remote_Sensing_Seg/test.py) 对 LoveDA Test 集图像进行预测，生成单通道预测掩码并保存至 `RESULT_PATH` 指定目录。
+2. **结果打包**：将预测结果目录打包为 `Result.zip`。
+3. **在线评测**：将 `Result.zip` 上传至 LoveDA 官方指定的 Codabench 评测平台，由平台后端基于真实标注计算 mIoU 及各类别 IoU。
+
+> 评测网站：<https://www.codabench.org/competitions/13030/>
+
+### 5.3 消融实验
 
 为验证多级特征融合中不同尺度特征的贡献，对比 MFLNet 及其两个消融变体（C2MFLNet、C3MFLNet）在 LoveDA 测试集上的表现：
 
@@ -367,7 +377,7 @@ $$mIoU = \frac{1}{C} \sum\_{c=1}^{C} \frac{TP\_c}{TP\_c + FP\_c + FN\_c}$$
 3. MFLNet 在 Background（+6.40%）、Road（+6.81%）和 Barren（+9.03%）类别上提升显著，说明多尺度融合有助于改善困难类别的分割精度。
 4. 四种模型均完整利用了 high\_level 和 low\_level，差异仅在于是否引入 c2/c3 中间层特征，结果证明同时引入两者的三级融合策略最优。
 
-### 5.3 对比实验
+### 5.4 对比实验
 
 将 MFLNet 与三种经典语义分割模型（UNet、SegFormer、DeepLabV3+）进行对比：
 
