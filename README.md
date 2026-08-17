@@ -173,17 +173,18 @@ fused\_4 经过两层 3×3 卷积 + 1×1 卷积输出分类 logits，最后上�
 
 ### 3.1 LoveDA 数据集
 
-本项目使用 **LoveDA**（Land-cover and Domain Adaptation）遥感语义分割数据集。该数据集包含来自多个城市和乡村场景的高分辨率遥感图像，涵盖 7 个地物类别：
+本项目使用 **LoveDA**（Land-cover and Domain Adaptation）遥感语义分割数据集。该数据集包含来自多个城市和乡村场景的高分辨率遥感图像，涵盖 7 个地物类别，0表示忽略：
 
-| 原始标签 |     训练标签     | 类别名称 | 英文 |
+| 原始标签 |     训练标签     | 类别名称 | 英文          |
 | :--: | :----------: | ---- | ----------- |
-|   0  | 255 (ignore) | 背景   | Background  |
-|   1  |       0      | 建筑   | Building    |
-|   2  |       1      | 道路   | Road        |
-|   3  |       2      | 水体   | Water       |
-|   4  |       3      | 裸地   | Barren      |
-|   5  |       4      | 森林   | Forest      |
-|   6  |       5      | 农业土地 | Agriculture |
+|   0  | 255 (ignore) | 忽略   | ignore      |
+|   1  |       0      | 背景   | Background  |
+|   2  |       1      | 建筑   | Building    |
+|   3  |       2      | 道路   | Road        |
+|   4  |       3      | 水体   | Water       |
+|   5  |       4      | 裸地   | Barren      |
+|   6  |       5      | 森林   | Forest      |
+|   7  |       6      | 农业土地 | Agriculture |
 
 数据集目录结构：
 
@@ -232,28 +233,28 @@ mask_t = torch.where(mask_t == 0, torch.tensor(255), mask_t - 1)
 采用**交叉熵损失 + Dice 损失**的组合损失函数：
 
 $$
-\mathcal{L} = w_{ce} \cdot \mathcal{L}_{CE} + w_{dice} \cdot \mathcal{L}_{Dice}
+\mathcal{L} = w\_{ce} \cdot \mathcal{L}_{CE} + w_{dice} \cdot \mathcal{L}\_{Dice}
 $$
 
-其中 $w_{ce} = 1.0$，$w_{dice} = 0.5$。
+其中 $w\_{ce} = 1.0$，$w\_{dice} = 0.5$。
 
 #### 交叉熵损失（CrossEntropyLoss）
 
 支持类别权重加权，用于缓解类别不平衡问题。类别权重根据训练集统计的各类像素频率计算：
 
 $$
-\mathrm{weight}_c = \frac{N_{\mathrm{total}}}{N_c \times C}
+\mathrm{weight}_c = \frac{N_{\mathrm{total}}}{N\_c \times C}
 $$
 
-其中 $N_{\mathrm{total}}$ 为有效像素总数（排除 `ignore_index=255`），$N_c$ 为类别 $c$ 的像素数，$C$ 为类别数。忽略索引设为 255，对应原始标签 0 的背景区域。
+其中 $N\_{\mathrm{total}}$ 为有效像素总数（排除 `ignore_index=255`），$N\_c$ 为类别 $c$ 的像素数，$C$ 为类别数。忽略索引设为 255，对应原始标签 0 的背景区域。
 
 #### Dice 损失（DiceLoss）
 
 $$
-\mathcal{L}_{Dice} = 1 - \frac{1}{K} \sum_{c=1}^{K} \frac{2 \sum_i p_{ic} g_{ic} + \epsilon}{\sum_i p_{ic} + \sum_i g_{ic} + \epsilon}
+\mathcal{L}_{Dice} = 1 - \frac{1}{K} \sum_{c=1}^{K} \frac{2 \sum\_i p\_{ic} g\_{ic} + \epsilon}{\sum\_i p\_{ic} + \sum\_i g\_{ic} + \epsilon}
 $$
 
-其中 $K$ 为目标中存在的类别数（仅对有真实像素的类别计算，避免空类别影响均值），$p_{ic}$ 为 softmax 后的预测概率，$g_{ic}$ 为 one‑hot 标签，$\epsilon = 10^{-6}$ 为平滑项。Dice 损失直接优化各类别的重叠度，与交叉熵互补，有助于提升小目标的分割效果。
+其中 $K$ 为目标中存在的类别数（仅对有真实像素的类别计算，避免空类别影响均值），$p\_{ic}$ 为 softmax 后的预测概率，$g\_{ic}$ 为 one‑hot 标签，$\epsilon = 10^{-6}$ 为平滑项。Dice 损失直接优化各类别的重叠度，与交叉熵互补，有助于提升小目标的分割效果。
 
 ***
 
@@ -261,39 +262,40 @@ $$
 
 #### 4.1.1 优化器与学习率
 
-- **优化器**：AdamW  
-- **基础学习率**：  
-  - 统一训练：所有参数使用相同的初始学习率 `lr = 1e-4`。  
-  - 分层训练（需通过 `--enable_layered_training` 显式开启）：  
-    - 浅层组（MobileNetV2 骨干网络）：`shallow_lr = 1e-5`  
-    - 深层组（解码器及其他模块）：`deep_lr = 1e-4`  
+- **优化器**：AdamW
+- **基础学习率**：
+  - 统一训练：所有参数使用相同的初始学习率 `lr = 1e-4`。
+  - 分层训练（需通过 `--enable_layered_training` 显式开启）：
+    - 浅层组（MobileNetV2 骨干网络）：`shallow_lr = 1e-5`
+    - 深层组（解码器及其他模块）：`deep_lr = 1e-4`
 
 #### 4.1.2 学习率调度
 
 采用 **线性预热 + 余弦退火** 的 epoch‑级调度策略：
 
-- **预热阶段**：前 `warmup_epochs = 10` 个 epoch，学习率从 `base_lr / warmup_epochs` 线性增长至初始学习率。  
-- **余弦退火阶段**：预热结束后，学习率按余弦曲线衰减至 `eta_min = 1e-6`，周期为 `epochs - warmup_epochs`。  
-- **调度器更新时机**：每个 epoch 结束后调用 `scheduler.step()`（即每个 epoch 更新一次），而非每个 batch。  
+- **预热阶段**：前 `warmup_epochs = 10` 个 epoch，学习率从 `base_lr / warmup_epochs` 线性增长至初始学习率。
+- **余弦退火阶段**：预热结束后，学习率按余弦曲线衰减至 `eta_min = 1e-6`，周期为 `epochs - warmup_epochs`。
+- **调度器更新时机**：每个 epoch 结束后调用 `scheduler.step()`（即每个 epoch 更新一次），而非每个 batch。
 - **分层训练时的行为**：两组参数各自从其初始学习率出发，经历完全相同的调度曲线（仅初始值不同）。
 
 #### 4.1.3 混合精度训练
 
-- 使用 `torch.amp.autocast` 自动混合精度，仅在 CUDA 可用时启用。  
-- 配合 `GradScaler` 对损失进行缩放，防止梯度下溢。  
+- 使用 `torch.amp.autocast` 自动混合精度，仅在 CUDA 可用时启用。
+- 配合 `GradScaler` 对损失进行缩放，防止梯度下溢。
 - 反向传播后执行梯度裁剪：`clip_grad_norm = 1.0`。
 
 #### 4.1.4 早停机制
 
-- 监控验证集的 mIoU 指标。  
+- 监控验证集的 mIoU 指标。
 - 若连续 `patience = 20` 个 epoch 未获得提升，则提前终止训练，并保存当前最佳模型。
 
 #### 4.1.5 预训练权重
 
-- 默认 **不加载** 预训练权重。  
-- 可通过 `--pretrained` 标志启用自动下载或指定 `--pretrained_path` 加载自定义权重。  
+- 默认 **不加载** 预训练权重。
+- 可通过 `--pretrained` 标志启用自动下载或指定 `--pretrained_path` 加载自定义权重。
 
 ### 4.4 训练指令
+
 ```bash
 # UNet
 python -u train.py --model unet --batch_size 8 --epochs 150 --lr 1e-4 --weight_decay 1e-4 --warmup_epochs 10 --patience 20 --dice_weight 0.5 --pretrained
@@ -351,24 +353,24 @@ $$mIoU = \frac{1}{C} \sum\_{c=1}^{C} \frac{TP\_c}{TP\_c + FP\_c + FN\_c}$$
 
 为验证多级特征融合中不同尺度特征的贡献，对比 MFLNet 及其两个消融变体（C2MFLNet、C3MFLNet）在 LoveDA 测试集上的表现：
 
-| 模型                     | 融合特征                 | 融合层级数 |  mIoU (%) |
-| ----------------------- | ------------------------ | :--------: | :-------: |
-| DeepLabV3+ (Baseline)   | high + low               |   1        |   47.54   |
-| C2MFLNet                | high + c2 + low          |   2        |   48.53   |
-| C3MFLNet                | high + c3 + low          |   2        |   49.07   |
-| **MFLNet**              | **high + c3 + c2 + low** |   **3**    | **50.77** |
+| 模型                    | 融合特征                     | 融合层级数 |  mIoU (%) |
+| --------------------- | ------------------------ | :---: | :-------: |
+| DeepLabV3+ (Baseline) | high + low               |   1   |   47.54   |
+| C2MFLNet              | high + c2 + low          |   2   |   48.53   |
+| C3MFLNet              | high + c3 + low          |   2   |   49.07   |
+| **MFLNet**            | **high + c3 + c2 + low** | **3** | **50.77** |
 
 **各类别 IoU 详细对比：**
 
 | 类别          | DeepLabV3+ (Baseline) (%) | C2MFLNet (%) | C3MFLNet (%) | MFLNet (%) |
-| ------------- | :-----------------------: | :----------: | :----------: | :--------: |
-| Background    |           30.03           |    35.19     |    34.54     | **36.43**  |
-| Building      |         **54.85**         |    55.52     |    54.61     |   55.03    |
-| Road          |           47.57           |    50.69     |    52.90     | **54.38**  |
-| Water         |           74.25           |    73.35     |  **76.80**   |   76.08    |
-| Barren        |           20.07           |    18.23     |    20.08     | **29.10**  |
-| Forest        |           44.48           |  **44.91**   |    44.48     |   43.90    |
-| Agriculture   |           61.55           |  **61.84**   |    60.05     |   60.50    |
+| ----------- | :-----------------------: | :----------: | :----------: | :--------: |
+| Background  |           30.03           |     35.19    |     34.54    |  **36.43** |
+| Building    |         **54.85**         |     55.52    |     54.61    |    55.03   |
+| Road        |           47.57           |     50.69    |     52.90    |  **54.38** |
+| Water       |           74.25           |     73.35    |   **76.80**  |    76.08   |
+| Barren      |           20.07           |     18.23    |     20.08    |  **29.10** |
+| Forest      |           44.48           |   **44.91**  |     44.48    |    43.90   |
+| Agriculture |           61.55           |   **61.84**  |     60.05    |    60.50   |
 
 **分析**：
 
@@ -413,7 +415,7 @@ $$mIoU = \frac{1}{C} \sum\_{c=1}^{C} \frac{TP\_c}{TP\_c + FP\_c + FN\_c}$$
 
 ### 6.1 ONNX 模型导出
 
-训练完成后，使用 export_onnx.py 将 PyTorch 模型（.pth）导出为 ONNX 格式，便于跨平台部署：
+训练完成后，使用 export\_onnx.py 将 PyTorch 模型（.pth）导出为 ONNX 格式，便于跨平台部署：
 
 ```python
 # export_onnx.py 顶部配置
@@ -437,6 +439,7 @@ USE_SIMPLIFY    = True
 基于 PyQt5 开发图形化用户界面（[UI.py](file:///d:/Code/python/Remote_Sensing_Seg/UI.py)），采用 ONNX Runtime 后端推理，无需完整 PyTorch 环境即可运行。
 
 #### 系统界面展示
+
 ![系统界面展示](./UI_Show.png)
 
 #### 后端推理流程
@@ -467,7 +470,6 @@ graph LR
 | GPU/CPU自适应 | 自动检测 CUDA，优先使用 GPU 推理  |
 | 多线程        | 推理在 QThread 中执行，避免界面卡顿 |
 
-
 ***
 
 ## 七、未来工作
@@ -483,31 +485,32 @@ graph LR
 
 ## 八、参考文献
 
-1. Wang J, Zheng Z, Ma A, et al. LoveDA: A remote sensing land-cover dataset for domain adaptive semantic segmentation[J]. arXiv preprint arXiv:2110.08733, 2021.
-2. Ronneberger O, Fischer P, Brox T. U-net: Convolutional networks for biomedical image segmentation[C]//International Conference on Medical image computing and computer-assisted intervention. Cham: Springer international publishing, 2015: 234-241.
-3. Chen L C, Papandreou G, Kokkinos I, et al. Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs[J]. IEEE transactions on pattern analysis and machine intelligence, 2017, 40(4): 834-848.
-4. Chen L C, Zhu Y, Papandreou G, et al. Encoder-decoder with atrous separable convolution for semantic image segmentation[C]//European conference on computer vision. Cham: Springer International Publishing, 2018: 833-851.
-5. Xie E, Wang W, Yu Z, et al. SegFormer: Simple and efficient design for semantic segmentation with transformers[J]. Advances in neural information processing systems, 2021, 34: 12077-12090.
-6. Sandler M, Howard A, Zhu M, et al. Mobilenetv2: Inverted residuals and linear bottlenecks[C]//2018 IEEE/CVF conference on computer vision and pattern recognition. Ieee, 2018: 4510-4520.
+1. Wang J, Zheng Z, Ma A, et al. LoveDA: A remote sensing land-cover dataset for domain adaptive semantic segmentation\[J]. arXiv preprint arXiv:2110.08733, 2021.
+2. Ronneberger O, Fischer P, Brox T. U-net: Convolutional networks for biomedical image segmentation\[C]//International Conference on Medical image computing and computer-assisted intervention. Cham: Springer international publishing, 2015: 234-241.
+3. Chen L C, Papandreou G, Kokkinos I, et al. Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs\[J]. IEEE transactions on pattern analysis and machine intelligence, 2017, 40(4): 834-848.
+4. Chen L C, Zhu Y, Papandreou G, et al. Encoder-decoder with atrous separable convolution for semantic image segmentation\[C]//European conference on computer vision. Cham: Springer International Publishing, 2018: 833-851.
+5. Xie E, Wang W, Yu Z, et al. SegFormer: Simple and efficient design for semantic segmentation with transformers\[J]. Advances in neural information processing systems, 2021, 34: 12077-12090.
+6. Sandler M, Howard A, Zhu M, et al. Mobilenetv2: Inverted residuals and linear bottlenecks\[C]//2018 IEEE/CVF conference on computer vision and pattern recognition. Ieee, 2018: 4510-4520.
 
 ***
 
 ## 九、许可证与致谢
 
-**本项目代码采用 [GPL-3.0](file:///d:/Code/python/Remote_Sensing_Seg/LICENSE) 开源许可**，仅供学习与研究使用。选择 GPL-3.0 是为与 PyQt5（GUI 依赖）及 [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet)（UNet 代码与权重来源，同为 GPL-3.0）保持许可兼容。
+**本项目代码采用** **[GPL-3.0](file:///d:/Code/python/Remote_Sensing_Seg/LICENSE)** **开源许可**，仅供学习与研究使用。选择 GPL-3.0 是为与 PyQt5（GUI 依赖）及 [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet)（UNet 代码与权重来源，同为 GPL-3.0）保持许可兼容。
 
 ⚠️ **非商业使用限制**：以下两部分**不得用于商业目的**，不随项目 GPL-3.0 许可解除：
+
 - **SegFormer 代码与 MiT-b0 权重**：源自 [NVlabs/SegFormer](https://github.com/NVlabs/SegFormer)，受 NVIDIA Source Code License 第 3.3 条约束（仅限非商业研究/评估）。
 - **LoveDA 数据集**：遵循 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)，数据集不随仓库分发，请至 [官方仓库](https://github.com/Junjue-Wang/LoveDA) 下载。
 
 **第三方来源致谢：**
 
-| 模块 | 来源 | 许可 |
-| :--- | :--- | :--- |
-| MobileNetV2 结构与权重 | [pytorch/vision](https://github.com/pytorch/vision) | BSD-3-Clause |
-| SegFormer / MiT-b0 结构与权重 | [NVlabs/SegFormer](https://github.com/NVlabs/SegFormer) | NVIDIA License（非商业） |
-| DeepLabV3+ / ASPP 思想 | [Google Research](https://github.com/tensorflow/models/tree/master/research/deeplab)（本项目自主实现） | Apache-2.0 |
-| UNet 结构与 Carvana 权重 | [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet) | GPL-3.0 |
+| 模块                       | 来源                                                                                            | 许可                  |
+| :----------------------- | :-------------------------------------------------------------------------------------------- | :------------------ |
+| MobileNetV2 结构与权重        | [pytorch/vision](https://github.com/pytorch/vision)                                           | BSD-3-Clause        |
+| SegFormer / MiT-b0 结构与权重 | [NVlabs/SegFormer](https://github.com/NVlabs/SegFormer)                                       | NVIDIA License（非商业） |
+| DeepLabV3+ / ASPP 思想     | [Google Research](https://github.com/tensorflow/models/tree/master/research/deeplab)（本项目自主实现） | Apache-2.0          |
+| UNet 结构与 Carvana 权重      | [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet)                             | GPL-3.0             |
 
 > 所有预训练权重（`*.pth`/`*.onnx`）不随仓库分发，运行时自动从官方下载。
 
@@ -523,6 +526,4 @@ graph LR
 ```
 
 > 本项目以学术交流为目的发布，使用风险自负。如涉版权问题请通过 GitHub Issue 联系。欢迎 ⭐ Star。
-
-
 
