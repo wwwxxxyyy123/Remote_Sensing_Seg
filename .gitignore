@@ -58,6 +58,7 @@ LoveDA.zip
 *.tgz
 *.rar
 *.7z
+*.png
 
 # ========== Model Weights & Checkpoints ==========
 checkpoints/
